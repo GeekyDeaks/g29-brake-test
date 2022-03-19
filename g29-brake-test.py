@@ -22,7 +22,7 @@ def get_report_value(report, start, bytes, signed=False):
 def monitor(port, g29):
 
     ser = serial.Serial(
-        port=port, baudrate=9600, bytesize=8, timeout=2, stopbits=serial.STOPBITS_ONE
+        port=port, baudrate=115200, bytesize=8, timeout=2, stopbits=serial.STOPBITS_ONE
     )
 
     start_time = time()
@@ -90,7 +90,6 @@ def hid_list():
     print('Input devices')
     for device in hid.enumerate():
         print(f"0x{device['vendor_id']:04x}:0x{device['product_id']:04x} {device['product_string']}")
- 
 
 def main():
     arduino = 'Arduino LilyPad USB'
@@ -107,6 +106,8 @@ def main():
         print('G29 not found')
         hid_list()
         return
+
+    print(f'found {g29.get_manufacturer_string()}, {g29.get_product_string()}')
 
     monitor(port, g29)
 
