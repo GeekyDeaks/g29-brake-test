@@ -13,21 +13,15 @@ def make_dac_cmd(value):
 
     return(bytes([ mode, msb, lsb ]))
 
-
 def get_report_value(report, start, bytes, signed=False):
     b = report[start:start + bytes]
     #print(f'get_report_value {b}')
     return int.from_bytes(b, byteorder='little', signed=signed)
 
-def monitor(port, g29):
-
-    ser = serial.Serial(
-        port=port, baudrate=115200, bytesize=8, timeout=2, stopbits=serial.STOPBITS_ONE
-    )
+def run_test(serial, g29, start, end, step=10, period=1, debug=False):
 
     start_time = time()
     current_time = start_time
-    period = 3
 
     # G29 
     # 43 bytes before the wheel
@@ -36,12 +30,12 @@ def monitor(port, g29):
     BRAKE_PEDAL = GAS_PEDAL + 2
     CLUTCH_PEDAL = BRAKE_PEDAL + 2
 
-    dac_value = 0
+    dac_value = start
 
     while 1:
         # check if there is data in the serial buffer to be displayed
-        if ser.in_waiting > 0:
-            b = ser.read(ser.in_waiting)
+        if debug and serial.in_waiting > 0:
+            b = serial.read(serial.in_waiting)
             sys.stdout.write(b.decode('Ascii'))
 
         report = g29.read(64)
@@ -59,9 +53,13 @@ def monitor(port, g29):
         # check if we need to update the dac value
         current_time = time()
         if(current_time - start_time > period):
-            ser.write(make_dac_cmd(dac_value))
+            if debug:
+                print(f'SET DAC: {dac_value}')
+            serial.write(make_dac_cmd(dac_value))
             start_time = current_time
-            dac_value += 1
+            dac_value += step
+            if dac_value > end:
+                return # we are done
 
 def serial_list():
     ports = list_ports.comports()
@@ -71,11 +69,17 @@ def serial_list():
     for port in ports:
         print(port)
 
-def find_port(description):
+def open_serial(description):
     ports = list_ports.comports()
     for port in ports:
         if port.description.startswith(description):
-            return port.name
+            return serial.Serial(
+                    port=port.name, 
+                    baudrate=115200, 
+                    bytesize=8, 
+                    timeout=2, 
+                    stopbits=serial.STOPBITS_ONE
+            )
 
 def open_g29():
     try:
@@ -93,13 +97,13 @@ def hid_list():
 
 def main():
     arduino = 'Arduino LilyPad USB'
-    port = find_port(arduino)
-    if not port:
+    serial = open_serial(arduino)
+    if not serial:
         print('{arduino} not found')
         serial_list()
         return
 
-    print(f'found {arduino} on port {port}')
+    print(f'found {arduino} on serial port {serial.name}')
 
     g29 = open_g29()
     if not g29:
@@ -109,7 +113,12 @@ def main():
 
     print(f'found {g29.get_manufacturer_string()}, {g29.get_product_string()}')
 
-    monitor(port, g29)
+    # 4096 / 3.3 = 1241 dac/v
+    # James logged values between approx 
+    # on  1.93 * 1241 = 1836 
+    # off 2.93 * 1241 = 3636
+    # maybe start with mid-point of 2736 and work outwards
+    run_test(serial=serial, g29=g29, start=1836, end=3636, period=0.1, debug=True)
 
 if __name__ == "__main__":
     main()

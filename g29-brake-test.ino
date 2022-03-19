@@ -44,7 +44,7 @@ void loop()
 {
   // if serial data available, process it
   if(Serial.available()) {
-    update_dac(Serial.read()); 
+    update_dac(Serial.read());
   }
   currentMillis = millis();  //get the current "time" (actually the number of milliseconds since the program started)
   if (currentMillis - startMillis >= period)  //test whether the period has elapsed
