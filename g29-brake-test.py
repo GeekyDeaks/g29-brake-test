@@ -19,14 +19,12 @@ def get_report_value(report, start, bytes, signed=False):
     print(f'get_report_value {b}')
     return int.from_bytes(b, byteorder='little', signed=signed)
 
-def monitor(port, g29, debug=False):
+def monitor(port, g29):
 
     ser = serial.Serial(
         port=port, baudrate=9600, bytesize=8, timeout=2, stopbits=serial.STOPBITS_ONE
     )
-    sio = io.TextIOWrapper(io.BufferedReader(ser))
 
-    serialString = ""  # Used to hold data coming over UART
     start_time = time()
     current_time = time()
     period = 3
@@ -38,22 +36,13 @@ def monitor(port, g29, debug=False):
     BRAKE_PEDAL = GAS_PEDAL + 2
     CLUTCH_PEDAL = BRAKE_PEDAL + 2
 
-    value = 0
+    dac_value = 0
 
     while 1:
-        # Wait until there is data waiting in the serial buffer
-        if debug and ser.in_waiting > 0:
-
-            # Read data out of the buffer until a carraige return / new line is found
-            serialString = sio.readline()
-            #serialString = serialString.decode("Ascii")
-            serialString = serialString.rstrip('\r\n')
-
-            # Print the contents of the serial data
-            try:
-                print(serialString)
-            except:
-                pass
+        # check if there is data in the serial buffer to be displayed
+        if ser.in_waiting > 0:
+            b = ser.read(ser.in_waiting)
+            sys.stdout.write(b.decode('Ascii'))
 
         report = g29.read(64)
         if report:
@@ -65,13 +54,14 @@ def monitor(port, g29, debug=False):
 
             print(f'report len: {len(report)}')
             print(report)
-            print(f'wheel: {wheel}, gas: {gas}, brake: {brake}, clutch: {clutch}')
+            print(f'dac_value: {dac_value}, wheel: {wheel}, gas: {gas}, brake: {brake}, clutch: {clutch}')
 
+        # check if we need to update the dac value
         current_time = time()
         if(current_time - start_time > period):
-            set_dac_value(value)
+            set_dac_value(ser, dac_value)
             start_time = current_time
-            value += 1
+            dac_value += 1
 
 def serial_list():
     ports = list_ports.comports()
@@ -80,8 +70,6 @@ def serial_list():
 
     for port in ports:
         print(port)
-        if port.description.startswith('Arduino LilyPad USB'):
-            print(f'found on {port.name}')
 
 def find_port(description):
     ports = list_ports.comports()
