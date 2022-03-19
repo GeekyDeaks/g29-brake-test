@@ -6,17 +6,17 @@ import sys
 import hid
 
 
-def set_dac_value(ser, value):
+def make_dac_cmd(value):
     mode = int('01000000', 2) # Sets the control byte (010-Sets in Write mode)
     msb = (value >> 4) & 0xff # get the 8 most significant bits
     lsb = (value << 4) & 0xff # get the 4 lest significant bits
 
-    ser.write(bytes([ mode, msb, lsb ]))
+    return(bytes([ mode, msb, lsb ]))
 
 
 def get_report_value(report, start, bytes, signed=False):
     b = report[start:start + bytes]
-    print(f'get_report_value {b}')
+    #print(f'get_report_value {b}')
     return int.from_bytes(b, byteorder='little', signed=signed)
 
 def monitor(port, g29):
@@ -26,7 +26,7 @@ def monitor(port, g29):
     )
 
     start_time = time()
-    current_time = time()
+    current_time = start_time
     period = 3
 
     # G29 
@@ -52,14 +52,14 @@ def monitor(port, g29):
             brake = get_report_value(report, BRAKE_PEDAL, 2)
             clutch = get_report_value(report, CLUTCH_PEDAL, 2)
 
-            print(f'report len: {len(report)}')
-            print(report)
+            #print(f'report len: {len(report)}')
+            #print(report)
             print(f'dac_value: {dac_value}, wheel: {wheel}, gas: {gas}, brake: {brake}, clutch: {clutch}')
 
         # check if we need to update the dac value
         current_time = time()
         if(current_time - start_time > period):
-            set_dac_value(ser, dac_value)
+            ser.write(make_dac_cmd(dac_value))
             start_time = current_time
             dac_value += 1
 
